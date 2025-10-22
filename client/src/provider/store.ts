@@ -1,13 +1,25 @@
 import { configureStore } from "@reduxjs/toolkit";
-import CounterReducer from "./slices/counterSlice";
+import authReducer from "./slices/authSlice";
+import resumeReducer from "./slices/resumeSlice";
+import templateReducer from "./slices/templateSlice";
+import historyReducer from "./slices/historySlice";
+import historyMiddleware from "./middleware/historyMiddleware";
 
 export const store = configureStore({
   reducer: {
-    counter: CounterReducer,
+    auth: authReducer,
+    resume: resumeReducer,
+    template: templateReducer,
+    history: historyReducer,
   },
+  middleware: (getDefaultMiddleware) =>
+    getDefaultMiddleware({
+      serializableCheck: {
+        ignoredActions: ["persist/PERSIST", "persist/REHYDRATE"],
+        ignoredPaths: ["register", "rehydrate"],
+      },
+    }).concat(historyMiddleware),
 });
 
-// Infer the `RootState` and `AppDispatch` types from the store itself
 export type RootState = ReturnType<typeof store.getState>;
-// Inferred type: {posts: PostsState, comments: CommentsState, users: UsersState}
 export type AppDispatch = typeof store.dispatch;

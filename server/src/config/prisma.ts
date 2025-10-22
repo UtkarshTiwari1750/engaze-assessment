@@ -1,33 +1,17 @@
-const fs = require("fs");
-const runTerminalCommand = require("../utils/runTerminalCommand.js");
+import { PrismaClient } from "@prisma/client";
 
-const getPrismaInstance = async (datasourceUrl, companyId) => {
-  if (!fs.existsSync("./prisma")) fs.mkdirSync("./prisma");
+declare global {
+  var __prisma: PrismaClient | undefined;
+}
 
-  fs.writeFileSync(`./prisma/${companyId}.prisma`, prismaTemplate(datasourceUrl, companyId));
-
-  await runTerminalCommand(`npx prisma db pull --schema="./prisma/${companyId}.prisma"`);
-
-  await runTerminalCommand(`npx prisma generate --schema="./prisma/${companyId}.prisma"`);
-
-  const { PrismaClient } = require(`@internal/${companyId}/client`);
-  const prismaClientInstance = new PrismaClient({
-    datasourceUrl: datasourceUrl,
+const prisma =
+  globalThis.__prisma ||
+  new PrismaClient({
+    log: process.env.NODE_ENV === "development" ? ["query", "error", "warn"] : ["error"],
   });
 
-  return prismaClientInstance;
-};
-
-const prismaTemplate = (datasourceUrl: string, id) => `
-generator client {
-  provider = "prisma-client-js"
-  output   = "../node_modules/@internal/${id}/client"
+if (process.env.NODE_ENV === "development") {
+  globalThis.__prisma = prisma;
 }
 
-datasource db {
-  provider = "mysql"
-  url      = "${datasourceUrl}"
-}
-`;
-
-module.exports = getPrismaInstance;
+export default prisma;
