@@ -226,20 +226,11 @@ export default function EditorPage() {
   };
 
   const handleAddSection = (sectionTypeId: number, heading: string) => {
-    resumeService
-      .createSection(resumeId, { sectionTypeId, heading })
-      .then((section) => {
-        dispatch(addSection(section));
-        toast.success("Section added successfully");
-      })
-      .catch(() => {
-        toast.error("Failed to add section");
-      });
+    createSectionMutation.mutate({ sectionTypeId, heading });
   };
 
   const handleDeleteSection = (sectionId: number) => {
-    dispatch(deleteSection(sectionId));
-    resumeService.deleteSection(resumeId, sectionId);
+    deleteSectionMutation.mutate(sectionId);
   };
 
   const handleUpdateDesign = (data: any) => {

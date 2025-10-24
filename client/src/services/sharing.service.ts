@@ -62,8 +62,18 @@ export const sharingService = {
         }
       );
 
-      // Create blob URL and trigger download
+      // Check if response is HTML error instead of PDF
+      if (response.headers["content-type"]?.includes("text/html")) {
+        throw new Error("Server returned HTML instead of PDF");
+      }
+
+      // Verify blob is valid
       const blob = new Blob([response.data], { type: "application/pdf" });
+      if (blob.size === 0) {
+        throw new Error("PDF file is empty");
+      }
+
+      // Create blob URL and trigger download
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
@@ -73,7 +83,10 @@ export const sharingService = {
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
     } catch (error) {
-      throw error;
+      if (error instanceof Error) {
+        throw new Error(`PDF download failed: ${error.message}`);
+      }
+      throw new Error("PDF download failed: Unknown error");
     }
   },
 };

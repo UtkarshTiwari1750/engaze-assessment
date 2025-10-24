@@ -125,7 +125,14 @@ export default function PublicResumePage() {
             <div className="flex items-center space-x-4">
               <Button
                 variant="outline"
-                onClick={() => sharingService.downloadPublicPdf(slug!, password)}
+                onClick={async () => {
+                  try {
+                    await sharingService.downloadPublicPdf(slug!, password);
+                    toast.success("PDF downloaded successfully");
+                  } catch (error) {
+                    toast.error(error instanceof Error ? error.message : "Failed to download PDF");
+                  }
+                }}
               >
                 <Download className="h-4 w-4 mr-2" />
                 Download PDF
