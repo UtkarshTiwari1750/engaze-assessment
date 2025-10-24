@@ -10,42 +10,64 @@ import { ResumeResponseDto } from "../../types/dtos";
 
 export class PDFService {
   async generatePDF(resume: ResumeResponseDto): Promise<Buffer> {
-    const MyDocument = React.createElement(Document, {}, [
-      React.createElement(Page, { key: "page1", size: "A4", style: styles.page }, [
-        React.createElement(View, { key: "header", style: styles.header }, [
-          React.createElement(Text, { key: "title", style: styles.title }, resume.title),
-        ]),
-        React.createElement(
-          View,
-          { key: "content", style: styles.content },
-          resume.sections
-            .filter((section) => section.visible)
-            .map((section, index) =>
-              React.createElement(View, { key: `section-${section.id}`, style: styles.section }, [
-                React.createElement(
-                  Text,
-                  { key: `heading-${section.id}`, style: styles.sectionHeading },
-                  section.heading
-                ),
-                React.createElement(
-                  View,
-                  { key: `items-${section.id}` },
-                  section.items.map((item, itemIndex) =>
-                    this.renderSectionItem(section.sectionType.key, item, itemIndex)
-                  )
-                ),
-              ])
-            )
-        ),
-      ]),
-    ]);
+    try {
+      // Validate resume data
+      if (!resume) {
+        throw new Error("Resume data is required");
+      }
 
-    const pdfBuffer = await pdf(MyDocument).toBuffer();
-    return pdfBuffer;
+      if (!resume.sections || resume.sections.length === 0) {
+        console.warn("Resume has no sections, generating empty PDF");
+      }
+      const MyDocument = React.createElement(Document, {}, [
+        React.createElement(Page, { key: "page1", size: "A4", style: styles.page }, [
+          React.createElement(View, { key: "header", style: styles.header }, [
+            React.createElement(Text, { key: "title", style: styles.title }, resume.title),
+          ]),
+          React.createElement(
+            View,
+            { key: "content", style: styles.content },
+            resume.sections
+              .filter((section) => section.visible)
+              .map((section, index) =>
+                React.createElement(View, { key: `section-${section.id}`, style: styles.section }, [
+                  React.createElement(
+                    Text,
+                    { key: `heading-${section.id}`, style: styles.sectionHeading },
+                    section.heading
+                  ),
+                  React.createElement(
+                    View,
+                    { key: `items-${section.id}` },
+                    section.items.map((item, itemIndex) =>
+                      this.renderSectionItem(section.sectionType.key, item, itemIndex)
+                    )
+                  ),
+                ])
+              )
+          ),
+        ]),
+      ]);
+
+      const pdfBuffer = await pdf(MyDocument).toBuffer();
+
+      // Verify PDF buffer is valid
+      if (!pdfBuffer || pdfBuffer.length === 0) {
+        throw new Error("PDF generation resulted in empty buffer");
+      }
+
+      console.log(`PDF generated successfully, size: ${pdfBuffer.length} bytes`);
+      return pdfBuffer;
+    } catch (error) {
+      console.error("PDF generation failed:", error);
+      throw new Error(
+        `PDF generation failed: ${error instanceof Error ? error.message : "Unknown error"}`
+      );
+    }
   }
 
   private renderSectionItem(sectionType: string, item: any, index: number) {
-    const data = item.dataJson;
+    const data = item.dataJson || {};
 
     switch (sectionType) {
       case "summary":

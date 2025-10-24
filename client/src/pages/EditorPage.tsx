@@ -1,12 +1,49 @@
+import React, { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useDispatch, useSelector } from "react-redux";
 import { resumeService } from "@/services/resume.service";
+import { templateService } from "@/services/template.service";
 import { Button } from "@/components/ui/button";
+import { EditorToolbar } from "@/components/editor/EditorToolbar";
+import { SectionList } from "@/components/editor/SectionList";
+import { ResumeCanvas } from "@/components/editor/ResumeCanvas";
+import { DesignPanel } from "@/components/editor/DesignPanel";
+import { SharingDialog } from "@/components/editor/SharingDialog";
+import type { RootState, AppDispatch } from "@/provider/store";
+import {
+  setCurrentResume,
+  updateResumeLocal,
+  addSection,
+  updateSection,
+  deleteSection,
+  reorderSections,
+  addItem,
+  updateItem,
+  deleteItem,
+  reorderItems,
+} from "@/provider/slices/resumeSlice";
+import { setCurrentDesign, updateDesignLocal } from "@/provider/slices/templateSlice";
+import { undo, redo } from "@/provider/slices/historySlice";
+import { useDebounce } from "@/hooks/useDebounce";
+import { toast } from "sonner";
 
 export default function EditorPage() {
   const { id } = useParams<{ id: string }>();
   const resumeId = parseInt(id || "0");
+  const dispatch = useDispatch<AppDispatch>();
+  const queryClient = useQueryClient();
 
+  const [selectedSectionId, setSelectedSectionId] = useState<number | null>(null);
+  const [showSharingDialog, setShowSharingDialog] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [lastSaved, setLastSaved] = useState<Date | undefined>();
+
+  const { currentResume } = useSelector((state: RootState) => state.resume);
+  const { currentDesign } = useSelector((state: RootState) => state.template);
+  const { canUndo, canRedo } = useSelector((state: RootState) => state.history);
+
+  // Fetch resume data
   const {
     data: resume,
     isLoading,
@@ -16,6 +53,225 @@ export default function EditorPage() {
     queryFn: () => resumeService.getResume(resumeId),
     enabled: !!resumeId,
   });
+
+  // Fetch design data
+  const { data: design } = useQuery({
+    queryKey: ["design", resumeId],
+    queryFn: () => templateService.getDesign(resumeId),
+    enabled: !!resumeId,
+  });
+
+  // Auto-save mutations
+  const updateResumeMutation = useMutation({
+    mutationFn: (data: any) => resumeService.updateResume(resumeId, data),
+    onMutate: () => setSaveStatus("saving"),
+    onSuccess: () => {
+      setSaveStatus("saved");
+      setLastSaved(new Date());
+    },
+    onError: () => setSaveStatus("error"),
+  });
+
+  const updateSectionMutation = useMutation({
+    mutationFn: ({ sectionId, data }: { sectionId: number; data: any }) =>
+      resumeService.updateSection(resumeId, sectionId, data),
+    onMutate: () => setSaveStatus("saving"),
+    onSuccess: () => {
+      setSaveStatus("saved");
+      setLastSaved(new Date());
+    },
+    onError: () => setSaveStatus("error"),
+  });
+
+  const updateItemMutation = useMutation({
+    mutationFn: ({ sectionId, itemId, data }: { sectionId: number; itemId: number; data: any }) =>
+      resumeService.updateItem(resumeId, sectionId, itemId, data),
+    onMutate: () => setSaveStatus("saving"),
+    onSuccess: () => {
+      setSaveStatus("saved");
+      setLastSaved(new Date());
+    },
+    onError: () => setSaveStatus("error"),
+  });
+
+  const createItemMutation = useMutation({
+    mutationFn: ({ sectionId, data }: { sectionId: number; data: any }) =>
+      resumeService.createItem(resumeId, sectionId, { dataJson: data || {} }),
+    onMutate: () => setSaveStatus("saving"),
+    onSuccess: (item, variables) => {
+      dispatch(addItem({ sectionId: variables.sectionId, item }));
+      setSaveStatus("saved");
+      setLastSaved(new Date());
+    },
+    onError: () => setSaveStatus("error"),
+  });
+
+  const deleteItemMutation = useMutation({
+    mutationFn: ({ sectionId, itemId }: { sectionId: number; itemId: number }) =>
+      resumeService.deleteItem(resumeId, sectionId, itemId),
+    onMutate: () => setSaveStatus("saving"),
+    onSuccess: (_, variables) => {
+      dispatch(deleteItem({ sectionId: variables.sectionId, itemId: variables.itemId }));
+      setSaveStatus("saved");
+      setLastSaved(new Date());
+    },
+    onError: () => setSaveStatus("error"),
+  });
+
+  const createSectionMutation = useMutation({
+    mutationFn: ({ sectionTypeId, heading }: { sectionTypeId: number; heading: string }) =>
+      resumeService.createSection(resumeId, { sectionTypeId, heading }),
+    onMutate: () => setSaveStatus("saving"),
+    onSuccess: (section) => {
+      dispatch(addSection(section));
+      setSaveStatus("saved");
+      setLastSaved(new Date());
+      toast.success("Section added successfully");
+    },
+    onError: () => {
+      setSaveStatus("error");
+      toast.error("Failed to add section");
+    },
+  });
+
+  const deleteSectionMutation = useMutation({
+    mutationFn: (sectionId: number) => resumeService.deleteSection(resumeId, sectionId),
+    onMutate: () => setSaveStatus("saving"),
+    onSuccess: (_, sectionId) => {
+      dispatch(deleteSection(sectionId));
+      setSaveStatus("saved");
+      setLastSaved(new Date());
+    },
+    onError: () => setSaveStatus("error"),
+  });
+
+  // Load resume into Redux on mount
+  useEffect(() => {
+    if (resume) {
+      dispatch(setCurrentResume(resume));
+    }
+  }, [resume, dispatch]);
+
+  // Load design into Redux
+  useEffect(() => {
+    if (design) {
+      dispatch(setCurrentDesign(design));
+    }
+  }, [design, dispatch]);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.ctrlKey || e.metaKey) {
+        switch (e.key) {
+          case "z":
+            e.preventDefault();
+            if (e.shiftKey) {
+              dispatch(redo());
+            } else {
+              dispatch(undo());
+            }
+            break;
+          case "y":
+            e.preventDefault();
+            dispatch(redo());
+            break;
+          case "s":
+            e.preventDefault();
+            // Manual save trigger
+            break;
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [dispatch]);
+
+  // Handlers
+  const handleUpdateResume = (data: any) => {
+    dispatch(updateResumeLocal(data));
+    updateResumeMutation.mutate(data);
+  };
+
+  const handleUpdateSection = (sectionId: number, data: any) => {
+    dispatch(updateSection({ id: sectionId, ...data }));
+    updateSectionMutation.mutate({ sectionId, data });
+  };
+
+  const handleUpdateItem = (sectionId: number, itemId: number, data: any) => {
+    dispatch(updateItem({ sectionId, item: { id: itemId, dataJson: data } }));
+    updateItemMutation.mutate({ sectionId, itemId, data: { dataJson: data } });
+  };
+
+  const handleDeleteItem = (sectionId: number, itemId: number) => {
+    deleteItemMutation.mutate({ sectionId, itemId });
+  };
+
+  const handleAddItem = (sectionId: number, data?: any) => {
+    createItemMutation.mutate({ sectionId, data });
+  };
+
+  const handleReorderSections = (sections: Array<{ id: number; position: number }>) => {
+    dispatch(reorderSections(sections));
+    resumeService.reorderSections(resumeId, sections);
+  };
+
+  const handleReorderItems = (
+    sectionId: number,
+    items: Array<{ id: number; position: number }>
+  ) => {
+    dispatch(reorderItems({ sectionId, items }));
+    resumeService.reorderItems(resumeId, sectionId, items);
+  };
+
+  const handleAddSection = (sectionTypeId: number, heading: string) => {
+    resumeService
+      .createSection(resumeId, { sectionTypeId, heading })
+      .then((section) => {
+        dispatch(addSection(section));
+        toast.success("Section added successfully");
+      })
+      .catch(() => {
+        toast.error("Failed to add section");
+      });
+  };
+
+  const handleDeleteSection = (sectionId: number) => {
+    dispatch(deleteSection(sectionId));
+    resumeService.deleteSection(resumeId, sectionId);
+  };
+
+  const handleUpdateDesign = (data: any) => {
+    dispatch(updateDesignLocal(data));
+    templateService.updateDesign(resumeId, data);
+  };
+
+  const handleDownloadPDF = async () => {
+    try {
+      const response = await fetch(`/api/resumes/${resumeId}/pdf`, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("resume_builder_token")}`,
+        },
+      });
+
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = `${currentResume.title}.pdf`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+      } else {
+        toast.error("Failed to download PDF");
+      }
+    } catch (error) {
+      toast.error("Failed to download PDF");
+    }
+  };
 
   if (isLoading) {
     return (
@@ -28,7 +284,7 @@ export default function EditorPage() {
     );
   }
 
-  if (error || !resume) {
+  if (error || !resume || !currentResume) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
@@ -42,100 +298,63 @@ export default function EditorPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-4">
-            <div>
-              <h1 className="text-xl font-semibold text-gray-900">{resume.title}</h1>
-              <p className="text-sm text-gray-600">Resume Editor</p>
-            </div>
-            <div className="flex items-center space-x-4">
-              <Button variant="outline">Preview</Button>
-              <Button variant="outline">Share</Button>
-              <Button>Download PDF</Button>
-            </div>
-          </div>
-        </div>
-      </header>
+    <div className="min-h-screen bg-gray-50 flex flex-col">
+      {/* Toolbar */}
+      <EditorToolbar
+        resume={currentResume}
+        onUpdateResume={handleUpdateResume}
+        onOpenSharing={() => setShowSharingDialog(true)}
+        onDownloadPDF={handleDownloadPDF}
+        onOpenTemplateSelector={() => {}}
+        saveStatus={saveStatus}
+        lastSaved={lastSaved}
+      />
 
       {/* Editor Layout */}
-      <div className="flex h-[calc(100vh-73px)]">
+      <div className="flex flex-1 h-[calc(100vh-73px)]">
         {/* Left Sidebar - Sections */}
-        <div className="w-64 bg-white border-r overflow-y-auto">
-          <div className="p-4">
-            <h3 className="font-medium text-gray-900 mb-4">Sections</h3>
-            <div className="space-y-2">
-              {resume.sections.map((section) => (
-                <div key={section.id} className="p-2 rounded-md hover:bg-gray-100 cursor-pointer">
-                  <div className="font-medium text-sm">{section.heading}</div>
-                  <div className="text-xs text-gray-500">{section.items.length} items</div>
-                </div>
-              ))}
-            </div>
-            <Button className="w-full mt-4" variant="outline">
-              Add Section
-            </Button>
-          </div>
+        <div className="w-64 bg-white border-r">
+          <SectionList
+            sections={currentResume.sections}
+            selectedSectionId={selectedSectionId}
+            onSelectSection={setSelectedSectionId}
+            onReorderSections={handleReorderSections}
+            onUpdateSection={handleUpdateSection}
+            onDeleteSection={handleDeleteSection}
+            onAddSection={handleAddSection}
+          />
         </div>
 
         {/* Main Canvas */}
-        <div className="flex-1 overflow-y-auto bg-gray-100 p-8">
-          <div className="max-w-2xl mx-auto bg-white shadow-lg min-h-[11in] p-8">
-            <div className="text-center mb-8">
-              <h1 className="text-3xl font-bold text-gray-900">{resume.title}</h1>
-              <p className="text-gray-600 mt-2">Resume content will be rendered here</p>
-            </div>
-
-            {resume.sections.map((section) => (
-              <div key={section.id} className="mb-6">
-                <h2 className="text-xl font-semibold text-gray-900 border-b pb-2 mb-4">
-                  {section.heading}
-                </h2>
-                <div className="space-y-2">
-                  {section.items.map((item) => (
-                    <div key={item.id} className="p-2 border rounded">
-                      <pre className="text-sm text-gray-700 whitespace-pre-wrap">
-                        {JSON.stringify(item.dataJson, null, 2)}
-                      </pre>
-                    </div>
-                  ))}
-                  {section.items.length === 0 && (
-                    <p className="text-gray-500 italic">No items in this section</p>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
+        <ResumeCanvas
+          resume={currentResume}
+          currentDesign={currentDesign}
+          selectedSectionId={selectedSectionId}
+          onSelectSection={setSelectedSectionId}
+          onUpdateSection={handleUpdateSection}
+          onUpdateItem={handleUpdateItem}
+          onDeleteItem={handleDeleteItem}
+          onAddItem={handleAddItem}
+          onReorderSections={handleReorderSections}
+          onReorderItems={handleReorderItems}
+        />
 
         {/* Right Sidebar - Design */}
-        <div className="w-64 bg-white border-l overflow-y-auto">
-          <div className="p-4">
-            <h3 className="font-medium text-gray-900 mb-4">Design</h3>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Template</label>
-                <Button variant="outline" className="w-full">
-                  Change Template
-                </Button>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Colors</label>
-                <div className="grid grid-cols-4 gap-2">
-                  {["bg-blue-500", "bg-green-500", "bg-purple-500", "bg-red-500"].map((color) => (
-                    <div
-                      key={color}
-                      className={`w-8 h-8 rounded ${color} cursor-pointer border-2 border-gray-200`}
-                    />
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
+        <div className="w-64">
+          <DesignPanel
+            resumeId={resumeId}
+            currentDesign={currentDesign}
+            onUpdateDesign={handleUpdateDesign}
+          />
         </div>
       </div>
+
+      {/* Sharing Dialog */}
+      <SharingDialog
+        isOpen={showSharingDialog}
+        onClose={() => setShowSharingDialog(false)}
+        resumeId={resumeId}
+      />
     </div>
   );
 }

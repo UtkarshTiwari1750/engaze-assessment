@@ -75,7 +75,8 @@ export class SharingController {
   getPublicResume = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const slug = req.params.slug;
-      const password = req.body.password;
+      // For GET requests, password comes from query params
+      const password = req.query.password as string;
 
       const resume = await this.sharingService.getPublicResume(slug, password);
 

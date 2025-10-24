@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 import { Lock, Download, Eye } from "lucide-react";
+import { ModernTemplate } from "@/components/templates/ModernTemplate";
 
 export default function PublicResumePage() {
   const { slug } = useParams<{ slug: string }>();
@@ -122,7 +123,10 @@ export default function PublicResumePage() {
               <p className="text-sm text-gray-600">Public Resume</p>
             </div>
             <div className="flex items-center space-x-4">
-              <Button variant="outline">
+              <Button
+                variant="outline"
+                onClick={() => sharingService.downloadPublicPdf(slug!, password)}
+              >
                 <Download className="h-4 w-4 mr-2" />
                 Download PDF
               </Button>
@@ -134,32 +138,18 @@ export default function PublicResumePage() {
 
       {/* Resume Content */}
       <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="bg-white shadow-lg min-h-[11in] p-8 mx-auto max-w-2xl">
-          <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold text-gray-900">{resume.title}</h1>
-          </div>
-
-          {resume.sections
-            .filter((section) => section.visible)
-            .map((section) => (
-              <div key={section.id} className="mb-6">
-                <h2 className="text-xl font-semibold text-gray-900 border-b pb-2 mb-4">
-                  {section.heading}
-                </h2>
-                <div className="space-y-2">
-                  {section.items.map((item) => (
-                    <div key={item.id} className="p-2">
-                      <pre className="text-sm text-gray-700 whitespace-pre-wrap">
-                        {JSON.stringify(item.dataJson, null, 2)}
-                      </pre>
-                    </div>
-                  ))}
-                  {section.items.length === 0 && (
-                    <p className="text-gray-500 italic">No items in this section</p>
-                  )}
-                </div>
-              </div>
-            ))}
+        <div className="bg-white shadow-lg min-h-[11in] mx-auto max-w-2xl">
+          <ModernTemplate
+            resume={resume}
+            sections={resume.sections.filter((s) => s.visible)}
+            selectedSectionId={null}
+            onSelectSection={() => {}}
+            onUpdateSection={() => {}}
+            onUpdateItem={() => {}}
+            onDeleteItem={() => {}}
+            onAddItem={() => {}}
+            onReorderItems={() => {}}
+          />
         </div>
 
         {/* CTA Section */}

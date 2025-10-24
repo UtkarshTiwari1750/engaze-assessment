@@ -6,7 +6,7 @@
     "dev": "bun run --watch src/index.ts",
     "clean": "rm -rf dist && rm -f index.js",
     "build": "bun build ./src/index.ts --outdir dist --target bun",
-    "build:prod":"bun install && bun run prisma generate && bun run build",
+    "build:prod": "bun install && bun run prisma generate && bun run build",
     "start:prod": "bun run dist/index.js",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",

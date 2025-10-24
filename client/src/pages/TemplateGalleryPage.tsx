@@ -1,11 +1,17 @@
-import { useQuery } from "@tanstack/react-query";
-import { Link } from "react-router-dom";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { templateService } from "@/services/template.service";
+import { resumeService } from "@/services/resume.service";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowLeft } from "lucide-react";
+import { toast } from "sonner";
 
 export default function TemplateGalleryPage() {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const resumeId = searchParams.get("resumeId");
+
   const {
     data: templates,
     isLoading,
@@ -14,6 +20,36 @@ export default function TemplateGalleryPage() {
     queryKey: ["templates"],
     queryFn: templateService.getTemplates,
   });
+
+  const applyTemplateMutation = useMutation({
+    mutationFn: ({ templateId, themeId }: { templateId: number; themeId?: number }) => {
+      if (resumeId) {
+        return templateService.applyTemplate(parseInt(resumeId), templateId, themeId);
+      } else {
+        return resumeService.createResume({
+          title: "New Resume",
+          templateId,
+          themeId,
+        });
+      }
+    },
+    onSuccess: (data) => {
+      if (resumeId) {
+        toast.success("Template applied successfully");
+        navigate(`/editor/${resumeId}`);
+      } else {
+        toast.success("Resume created with template");
+        navigate(`/editor/${(data as any).id}`);
+      }
+    },
+    onError: () => {
+      toast.error("Failed to apply template");
+    },
+  });
+
+  const handleUseTemplate = (templateId: number, themeId?: number) => {
+    applyTemplateMutation.mutate({ templateId, themeId });
+  };
 
   if (isLoading) {
     return (
@@ -104,7 +140,13 @@ export default function TemplateGalleryPage() {
                       )}
                     </div>
                   </div>
-                  <Button className="w-full">Use This Template</Button>
+                  <Button
+                    className="w-full"
+                    onClick={() => handleUseTemplate(template.id, template.themes[0]?.id)}
+                    disabled={applyTemplateMutation.isPending}
+                  >
+                    {applyTemplateMutation.isPending ? "Applying..." : "Use This Template"}
+                  </Button>
                 </div>
               </CardContent>
             </Card>

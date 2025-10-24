@@ -1,5 +1,7 @@
 import type { Middleware } from "@reduxjs/toolkit";
-import { pushHistory } from "../slices/historySlice";
+import { pushHistory, undo, redo } from "../slices/historySlice";
+import { setCurrentResume } from "../slices/resumeSlice";
+import { setCurrentDesign } from "../slices/templateSlice";
 
 // Actions that should trigger history tracking
 const TRACKABLE_ACTIONS = [
@@ -22,11 +24,60 @@ const DEBOUNCED_ACTIONS = [
 
 let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 const DEBOUNCE_DELAY = 1000; // 1 second
-export const historyMiddleware: Middleware = (store) => (next) => (action) => {
-  const result = next(action);
 
-  // Type-safe access to action.type (action may be unknown per middleware signature)
+export const historyMiddleware: Middleware = (store) => (next) => (action) => {
   const actionType = (action as { type?: string }).type;
+
+  // Handle undo/redo actions
+  if (actionType === "history/undo") {
+    const state = store.getState();
+    const { past } = state.history;
+
+    if (past.length > 0) {
+      // Get the previous state
+      const previousState = past[past.length - 1];
+
+      // Dispatch the undo action
+      const result = next(action);
+
+      // Restore the previous state
+      if (previousState.resume) {
+        store.dispatch(setCurrentResume(previousState.resume));
+      }
+      if (previousState.template) {
+        store.dispatch(setCurrentDesign(previousState.template));
+      }
+
+      return result;
+    }
+    return next(action);
+  }
+
+  if (actionType === "history/redo") {
+    const state = store.getState();
+    const { future } = state.history;
+
+    if (future.length > 0) {
+      // Get the next state
+      const nextState = future[0];
+
+      // Dispatch the redo action
+      const result = next(action);
+
+      // Restore the next state
+      if (nextState.resume) {
+        store.dispatch(setCurrentResume(nextState.resume));
+      }
+      if (nextState.template) {
+        store.dispatch(setCurrentDesign(nextState.template));
+      }
+
+      return result;
+    }
+    return next(action);
+  }
+
+  const result = next(action);
 
   // Check if this action should be tracked
   if (actionType && TRACKABLE_ACTIONS.includes(actionType)) {

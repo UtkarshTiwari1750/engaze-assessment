@@ -33,6 +33,14 @@ export class NotFoundError extends AppError {
 }
 
 export function errorHandler(error: Error, req: Request, res: Response, next: NextFunction) {
+  // Check if headers are already sent
+  if (res.headersSent) {
+    return next(error);
+  }
+
+  // Check if this is a PDF route
+  const isPdfRoute = req.path.includes("/pdf") || res.locals.isBinaryResponse;
+
   let statusCode = 500;
   let message = "Internal server error";
 
@@ -60,6 +68,16 @@ export function errorHandler(error: Error, req: Request, res: Response, next: Ne
   // Log error in development
   if (process.env.NODE_ENV === "development") {
     console.error("Error:", error);
+  }
+
+  // For PDF routes, return JSON error instead of HTML
+  if (isPdfRoute) {
+    console.error("PDF route error:", error);
+    res.setHeader("Content-Type", "application/json");
+    return res.status(statusCode).json({
+      success: false,
+      message: `PDF generation failed: ${message}`,
+    });
   }
 
   res.status(statusCode).json({

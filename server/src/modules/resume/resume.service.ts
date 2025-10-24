@@ -275,8 +275,80 @@ export class ResumeService {
       throw new NotFoundError("Resume not found");
     }
 
-    // TODO: Implement version restoration logic
-    // This would involve restoring sections and items from the snapshot
+    const snapshotData = version.snapshotJson as any;
+
+    await prisma.$transaction(async (tx) => {
+      // Delete existing sections and items
+      await tx.sectionItem.deleteMany({
+        where: {
+          section: {
+            resumeId,
+          },
+        },
+      });
+
+      await tx.resumeSection.deleteMany({
+        where: { resumeId },
+      });
+
+      // Restore sections from snapshot
+      if (snapshotData.sections) {
+        for (const sectionData of snapshotData.sections) {
+          const section = await tx.resumeSection.create({
+            data: {
+              resumeId,
+              sectionTypeId: sectionData.sectionTypeId,
+              heading: sectionData.heading,
+              position: sectionData.position,
+              visible: sectionData.visible,
+              layoutConfig: sectionData.layoutConfig || {},
+            },
+          });
+
+          // Restore items for this section
+          if (sectionData.items) {
+            for (const itemData of sectionData.items) {
+              await tx.sectionItem.create({
+                data: {
+                  sectionId: section.id,
+                  position: itemData.position,
+                  dataJson: itemData.dataJson,
+                },
+              });
+            }
+          }
+        }
+      }
+
+      // Update resume metadata if present in snapshot
+      if (snapshotData.title || snapshotData.status) {
+        await tx.resume.update({
+          where: { id: resumeId },
+          data: {
+            ...(snapshotData.title && { title: snapshotData.title }),
+            ...(snapshotData.status && { status: snapshotData.status }),
+          },
+        });
+      }
+
+      // Restore template settings if present
+      if (snapshotData.template) {
+        await tx.resumeTemplate.upsert({
+          where: { resumeId },
+          update: {
+            templateId: snapshotData.template.templateId,
+            themeId: snapshotData.template.themeId,
+            customOverrides: snapshotData.template.customOverrides || {},
+          },
+          create: {
+            resumeId,
+            templateId: snapshotData.template.templateId,
+            themeId: snapshotData.template.themeId,
+            customOverrides: snapshotData.template.customOverrides || {},
+          },
+        });
+      }
+    });
 
     return this.getResumeById(userId, resumeId);
   }

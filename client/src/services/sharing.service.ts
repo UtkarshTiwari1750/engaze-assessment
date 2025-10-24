@@ -48,4 +48,32 @@ export const sharingService = {
     );
     return response.data.data.valid;
   },
+
+  async downloadPublicPdf(slug: string, password?: string): Promise<void> {
+    try {
+      const response = await axios.post(
+        API_ENDPOINTS.sharing.pdf(slug),
+        password ? { password } : {},
+        {
+          responseType: "blob",
+          headers: {
+            Accept: "application/pdf",
+          },
+        }
+      );
+
+      // Create blob URL and trigger download
+      const blob = new Blob([response.data], { type: "application/pdf" });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `resume-${slug}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      throw error;
+    }
+  },
 };

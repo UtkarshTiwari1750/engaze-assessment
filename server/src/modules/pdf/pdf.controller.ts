@@ -22,18 +22,33 @@ export class PDFController {
       // Get resume data
       const resume = await this.resumeService.getResumeById(userId, resumeId);
 
+      if (!resume) {
+        return res.status(404).json({ success: false, message: "Resume not found" });
+      }
+
       // Generate PDF
       const pdfBuffer = await this.pdfService.generatePDF(resume);
 
+      if (!pdfBuffer || pdfBuffer.length === 0) {
+        throw new Error("PDF generation failed - empty buffer");
+      }
+
       // Set headers for PDF download
-      res.setHeader("Content-Type", "application/pdf");
-      res.setHeader("Content-Disposition", `attachment; filename="${resume.title}.pdf"`);
-      res.setHeader("Content-Length", pdfBuffer.length);
+      if (!res.headersSent) {
+        res.setHeader("Content-Type", "application/pdf");
+        res.setHeader("Content-Transfer-Encoding", "binary");
+        res.setHeader("Cache-Control", "no-cache");
+        res.setHeader("Content-Disposition", `attachment; filename="${resume.title}.pdf"`);
+        res.setHeader("Content-Length", pdfBuffer.length);
+      }
 
       // Send PDF buffer
       res.send(pdfBuffer);
     } catch (error) {
-      next(error);
+      console.error("PDF generation error:", error);
+      if (!res.headersSent) {
+        res.status(500).json({ success: false, message: "PDF generation failed" });
+      }
     }
   };
 
@@ -45,18 +60,33 @@ export class PDFController {
       // Get public resume data
       const resume = await this.sharingService.getPublicResume(slug, password);
 
+      if (!resume) {
+        return res.status(404).json({ success: false, message: "Resume not found" });
+      }
+
       // Generate PDF
       const pdfBuffer = await this.pdfService.generatePDF(resume as any);
 
+      if (!pdfBuffer || pdfBuffer.length === 0) {
+        throw new Error("PDF generation failed - empty buffer");
+      }
+
       // Set headers for PDF download
-      res.setHeader("Content-Type", "application/pdf");
-      res.setHeader("Content-Disposition", `attachment; filename="${resume.title}.pdf"`);
-      res.setHeader("Content-Length", pdfBuffer.length);
+      if (!res.headersSent) {
+        res.setHeader("Content-Type", "application/pdf");
+        res.setHeader("Content-Transfer-Encoding", "binary");
+        res.setHeader("Cache-Control", "no-cache");
+        res.setHeader("Content-Disposition", `attachment; filename="${resume.title}.pdf"`);
+        res.setHeader("Content-Length", pdfBuffer.length);
+      }
 
       // Send PDF buffer
       res.send(pdfBuffer);
     } catch (error) {
-      next(error);
+      console.error("PDF generation error:", error);
+      if (!res.headersSent) {
+        res.status(500).json({ success: false, message: "PDF generation failed" });
+      }
     }
   };
 }

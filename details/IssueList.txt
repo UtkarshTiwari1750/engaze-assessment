@@ -1,0 +1,102 @@
+1) Request URL
+http://localhost:3000/api/share/fd1f001c445e5c3c
+Request Method
+GET
+Status Code
+500 Internal Server Error
+Server Error: 
+Error: 73 |   };
+74 | 
+75 |   getPublicResume = async (req: Request, res: Response, next: NextFunction) => {
+76 |     try {
+77 |       const slug = req.params.slug;
+78 |       const password = req.body.password;
+                                ^
+TypeError: undefined is not an object (evaluating 'req.body.password')
+
+I had create a public accessable share link without password.
+
+2)           <ContentEditable
+            value=""
+            onChange={() => {}}
+            placeholder="Email • Phone • Location • LinkedIn"
+            className="text-center"
+          />
+
+Placeholder is not getting remove on addition of text
+3) Not able to add content inside the sections.
+4) Request URL
+http://localhost:3000/api/resumes/3/design
+Request Method
+PATCH
+Status Code
+200 OK
+{"customOverrides":{"primaryColor":"#2a5fd2"}}
+
+Above api is getting called on the movement of the color selector it should only be called onclick on Done button
+
+
+5) Eye buttton on the section gives below error 
+Unexpected Application Error!
+Cannot read properties of undefined (reading 'length')
+TypeError: Cannot read properties of undefined (reading 'length')
+    at SortableSectionItem (http://localhost:5173/src/components/editor/SectionList.tsx?t=1761274121070:80:27)
+    at Object.react_stack_bottom_frame (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=4b02bd9a:18509:20)
+    at renderWithHooks (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=4b02bd9a:5654:24)
+    at updateFunctionComponent (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=4b02bd9a:7475:21)
+    at beginWork (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=4b02bd9a:8525:20)
+    at runWithFiberInDEV (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=4b02bd9a:997:72)
+    at performUnitOfWork (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=4b02bd9a:12561:98)
+    at workLoopSync (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=4b02bd9a:12424:43)
+    at renderRootSync (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=4b02bd9a:12408:13)
+    at performWorkOnRoot (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=4b02bd9a:11827:37)
+💿 Hey developer 👋
+
+You can provide a way better UX than this when your app throws errors by providing your own ErrorBoundary or errorElement prop on your route.
+
+6) No button to save the changes made inside the resume or automatice debounce save of the update 
+7) "Section type "contact" not implemented yet" Getting this text for the section which is not handled in the code provide a default editing place for such sections
+8) PDF download button gives this error "Unexpected Application Error!
+404 Not Found
+💿 Hey developer 👋
+
+You can provide a way better UX than this when your app throws errors by providing your own ErrorBoundary or errorElement prop on your route."
+9) Allow addition of new sections and section type from UI.
+10) Changes in the design doesn't gets reflected in real-time, it required external reload.
+
+
+
+Fix Following issues
+1) <ContentEditable
+            value=""
+            onChange={() => {}}
+            placeholder="Email • Phone • Location • LinkedIn"
+            className="text-center"
+          />
+
+Placeholder is not getting remove on addition of text
+
+2) Skills addition not working, is adding the section but not able to add data or edit the placeholders for the section
+	Example: Contact info working perfectly able to change title and content but in skill and experience the not able to make those changes in UI.
+3) On deactivating Section Eye button
+Unexpected Application Error!
+Cannot read properties of undefined (reading 'key')
+TypeError: Cannot read properties of undefined (reading 'key')
+    at renderSectionContent (http://localhost:5173/src/components/editor/SectionRenderer.tsx:209:44)
+    at SectionRenderer (http://localhost:5173/src/components/editor/SectionRenderer.tsx:350:70)
+    at Object.react_stack_bottom_frame (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=afb26357:18509:20)
+    at renderWithHooks (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=afb26357:5654:24)
+    at updateFunctionComponent (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=afb26357:7475:21)
+    at beginWork (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=afb26357:8525:20)
+    at runWithFiberInDEV (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=afb26357:997:72)
+    at performUnitOfWork (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=afb26357:12561:98)
+    at workLoopSync (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=afb26357:12424:43)
+    at renderRootSync (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=afb26357:12408:13)
+💿 Hey developer 👋
+
+You can provide a way better UX than this when your app throws errors by providing your own ErrorBoundary or errorElement prop on your route.
+
+4) In the share page resume content is displayed in rendered in JSON format, it should render in the pdf format like same as editor page
+5) The downloaded pdf is getting "unable to open document, File type HTML document (text/html) is not supported" fix it.
+6) "Not Saved" test on top left is not static it should change after successful save/update 
+
