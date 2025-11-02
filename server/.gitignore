@@ -42,7 +42,6 @@ package-lock.json
 **/*.bun
 
 node_modules
-prisma
 certs
 .vscode
 sql.sql

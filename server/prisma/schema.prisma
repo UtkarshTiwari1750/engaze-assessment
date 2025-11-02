@@ -1,0 +1,144 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../node_modules/.prisma/client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model resume_sections {
+  id            Int             @id @default(autoincrement())
+  resumeId      Int
+  sectionTypeId Int
+  heading       String
+  position      Int
+  visible       Boolean         @default(true)
+  layoutConfig  Json            @default("{}")
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime
+  resumes       resumes         @relation(fields: [resumeId], references: [id], onDelete: Cascade)
+  section_types section_types   @relation(fields: [sectionTypeId], references: [id])
+  section_items section_items[]
+
+  @@index([resumeId])
+  @@index([resumeId, position])
+}
+
+model resume_templates {
+  resumeId        Int       @id
+  templateId      Int
+  themeId         Int?
+  customOverrides Json      @default("{}")
+  resumes         resumes   @relation(fields: [resumeId], references: [id], onDelete: Cascade)
+  templates       templates @relation(fields: [templateId], references: [id])
+  themes          themes?   @relation(fields: [themeId], references: [id])
+
+  @@index([templateId])
+  @@index([themeId])
+}
+
+model resume_versions {
+  id           Int      @id @default(autoincrement())
+  resumeId     Int
+  versionNum   Int
+  snapshotJson Json
+  createdAt    DateTime @default(now())
+  resumes      resumes  @relation(fields: [resumeId], references: [id], onDelete: Cascade)
+
+  @@unique([resumeId, versionNum])
+  @@index([resumeId])
+}
+
+model resumes {
+  id               Int               @id @default(autoincrement())
+  userId           Int
+  title            String
+  slug             String            @unique
+  status           String            @default("draft")
+  activeVersionId  Int?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime
+  resume_sections  resume_sections[]
+  resume_templates resume_templates?
+  resume_versions  resume_versions[]
+  users            users             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sharing_links    sharing_links[]
+
+  @@index([slug])
+  @@index([userId])
+}
+
+model section_items {
+  id              Int             @id @default(autoincrement())
+  sectionId       Int
+  position        Int
+  dataJson        Json
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime
+  resume_sections resume_sections @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+
+  @@index([sectionId])
+  @@index([sectionId, position])
+}
+
+model section_types {
+  id              Int               @id @default(autoincrement())
+  key             String            @unique
+  name            String
+  isSingleton     Boolean           @default(false)
+  defaultFields   Json
+  resume_sections resume_sections[]
+}
+
+model sharing_links {
+  id           Int       @id @default(autoincrement())
+  resumeId     Int
+  slug         String    @unique
+  visibility   String    @default("private")
+  passwordHash String?
+  expiresAt    DateTime?
+  createdAt    DateTime  @default(now())
+  resumes      resumes   @relation(fields: [resumeId], references: [id], onDelete: Cascade)
+
+  @@index([resumeId])
+  @@index([slug])
+}
+
+model templates {
+  id               Int                @id @default(autoincrement())
+  key              String             @unique
+  name             String
+  description      String?
+  previewImage     String?
+  layoutConfig     Json
+  isPublic         Boolean            @default(true)
+  createdAt        DateTime           @default(now())
+  resume_templates resume_templates[]
+  themes           themes[]
+}
+
+model themes {
+  id               Int                @id @default(autoincrement())
+  templateId       Int
+  name             String
+  colorScheme      Json
+  typography       Json
+  spacing          Json
+  createdAt        DateTime           @default(now())
+  resume_templates resume_templates[]
+  templates        templates          @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@index([templateId])
+}
+
+model users {
+  id           Int       @id @default(autoincrement())
+  email        String    @unique
+  name         String
+  passwordHash String
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime
+  resumes      resumes[]
+}
